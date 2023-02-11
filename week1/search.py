@@ -19,6 +19,7 @@ def process_filters(filters_input):
     filters = []
     display_filters = []  # Also create the text we will use to display the filters that are applied
     applied_filters = ""
+    print("filter input", filters_input)
     for filter in filters_input:
         type = request.args.get(filter + ".type")
         display_name = request.args.get(filter + ".displayName", filter)
@@ -53,8 +54,6 @@ def process_filters(filters_input):
 
     return filters, display_filters, applied_filters
 
-
-
 # Our main query route.  Accepts POST (via the Search box) and GETs via the clicks on aggregations/facets
 @bp.route('/query', methods=['GET', 'POST'])
 def query():
@@ -67,7 +66,8 @@ def query():
     applied_filters = ""
     filters = None
     sort = "_score"
-    sortDir = "desc"
+    sortDir = "desc",
+    index_name = 'bbuy_products'
     if request.method == 'POST':  # a query has been submitted
         user_query = request.form['query']
         if not user_query:
@@ -80,22 +80,18 @@ def query():
             sortDir = "desc"
         query_obj = create_query(user_query, [], sort, sortDir)
     elif request.method == 'GET':  # Handle the case where there is no query or just loading the page
+        print("here", request.args.getlist("filter.name"))
         user_query = request.args.get("query", "*")
         filters_input = request.args.getlist("filter.name")
         sort = request.args.get("sort", sort)
         sortDir = request.args.get("sortDir", sortDir)
         if filters_input:
             (filters, display_filters, applied_filters) = process_filters(filters_input)
-
         query_obj = create_query(user_query, filters, sort, sortDir)
     else:
         query_obj = create_query("*", [], sort, sortDir)
-
     print("query obj: {}".format(query_obj))
-
-    #### Step 4.b.ii
-    response = None   # TODO: Replace me with an appropriate call to OpenSearch
-    # Postprocess results here if you so desire
+    response = opensearch.search(body=query_obj, index=index_name)
 
     #print(response)
     if error is None:
@@ -108,14 +104,57 @@ def query():
 
 def create_query(user_query, filters, sort="_score", sortDir="desc"):
     print("Query: {} Filters: {} Sort: {}".format(user_query, filters, sort))
+
     query_obj = {
         'size': 10,
         "query": {
-            "match_all": {} # Replace me with a query that both searches and filters
-        },
-        "aggs": {
-            #### Step 4.b.i: create the appropriate query and aggregations here
-
-        }
+            "bool":{
+                "must":[
+                        {"query_string": {
+                            "query": user_query,
+                            "phrase_slop": 3,
+                            "fields": ["name^100", "shortDescription^50", "longDescription^10"]
+                                        }
+                        }                                                  
+        ],
+        "filter" : filters  
+      }
+      }, 
+      "highlight": {
+        "fields": {
+          "name":{},
+          "longDescription":{},
+          "shortDescription": {}
+                  }
+      },
+      "aggs": {
+        "regularPrice": {
+          "range": {
+            "field": "regularPrice",
+            "ranges": [
+              { "key": "$", "to": 100 },
+              { "key": "$$", "from": 100, "to": 200 },
+              { "key": "$$$", "from": 200, "to": 300 },
+              { "key": "$$$$","from": 300, "to": 400},
+              { "key": "$$$$$","from": 400, "to": 500},
+              { "key": "$$$$$$","from": 500}
+            ]
+          }
+      },
+            "department": {
+              "terms": { "field": "department.keyword" }
+    },
+            "missing_images": {
+              "missing": { "field": "image.keyword" }
     }
+    },
+      "sort": [
+        {
+          sort: {
+          "order": sortDir
+          }
+        }
+      ]
+    }
+    
     return query_obj
