@@ -1,3 +1,4 @@
+
 # Welcome to Search Fundamentals
 
 Search Fundamentals is a two week class taught by Grant Ingersoll and Daniel Tunkelang and is focused on helping students
@@ -88,5 +89,9 @@ Note: these have only been tested on a Mac running OS 12.2.1.  YMMV.  Much of wh
     A. `cd docker`
     B. `docker-compose up`
 5. Note: most of the scripts and projects assume the data is in `/workspace/datasets`, but have overrides to specify your own directories. You will need to download and plan accordingly.  
-6. Do your work per the Weekly Project     
+6. Do your work per the Weekly Project  
+
+
+
+
     

@@ -64,7 +64,28 @@ def autocomplete():
         if prefix is not None:
             type = request.args.get("type", "queries") # If type == queries, this is an autocomplete request, else if products, it's an instant search request.
             ##### W2, L3, S1
-            search_response = None
+            if type == 'queries': 
+                index_name = 'bbuy_queries'
+            else: 
+                index_name = 'bbuy_products'
+
+            autosuggest_query = {
+                "suggest": 
+                {
+                    "autocomplete": {
+                        "prefix": prefix, 
+                        "completion":{
+                            "field": "suggest",
+                            "skip_duplicates": True
+                        }
+                    }
+
+                }
+            }
+
+            os_client = get_opensearch()
+            
+            search_response = os_client.search(body=autosuggest_query, index=index_name)
             print("TODO: implement autocomplete AND instant search")
             if (search_response and search_response['suggest']['autocomplete'] and search_response['suggest']['autocomplete'][0]['length'] > 0): # just a query response
                 results = search_response['suggest']['autocomplete'][0]['options']
@@ -106,6 +127,8 @@ def query():
 
         query_obj = qu.create_query(user_query,  [], sort, sortDir, size=20)  # We moved create_query to a utility class so we could use it elsewhere.
         ##### W2, L1, S2
+        # add_spelling_suggestions(query_obj, user_query)
+        query_obj = qu.add_spelling_suggestions(query_obj, user_query)
 
         ##### W2, L2, S2
         print("Plain ol q: %s" % query_obj)
@@ -121,6 +144,7 @@ def query():
             (filters, display_filters, applied_filters) = process_filters(filters_input)
         query_obj = qu.create_query(user_query,  filters, sort, sortDir, size=20)
         #### W2, L1, S2
+        query_obj = qu.add_spelling_suggestions(query_obj, user_query)
 
         ##### W2, L2, S2
 
